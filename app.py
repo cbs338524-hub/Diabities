@@ -17,24 +17,12 @@ from sklearn.metrics import (
     roc_auc_score
 )
 
-
-# =========================================================
-# FLASK SETUP
-# =========================================================
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# IMPORTANT:
-# Your index.html is in the SAME folder as app.py
 app = Flask(
     __name__,
     template_folder=BASE_DIR
 )
-
-
-# =========================================================
-# LOAD DATASET
-# =========================================================
 
 CSV_PATH = os.path.join(
     BASE_DIR,
@@ -50,14 +38,7 @@ except FileNotFoundError:
         "Make sure hospital.csv is in the same folder as app.py."
     )
 
-
-# Remove extra spaces from column names
 df.columns = df.columns.str.strip()
-
-
-# =========================================================
-# REQUIRED COLUMNS
-# =========================================================
 
 features = [
     "Age",
@@ -81,12 +62,6 @@ if missing_columns:
         f"Missing columns in hospital.csv: {missing_columns}"
     )
 
-
-# =========================================================
-# DATA CLEANING
-# =========================================================
-
-# Convert feature columns to numeric
 for column in features:
 
     df[column] = pd.to_numeric(
@@ -94,8 +69,6 @@ for column in features:
         errors="coerce"
     )
 
-
-# Clean Diabetes column
 df[target] = (
     df[target]
     .astype(str)
@@ -103,8 +76,6 @@ df[target] = (
     .str.lower()
 )
 
-
-# Convert Yes/No to 1/0
 df[target] = df[target].map({
     "yes": 1,
     "no": 0,
@@ -112,29 +83,17 @@ df[target] = df[target].map({
     "0": 0
 })
 
-
-# Remove missing/invalid rows
 df = df.dropna(
     subset=required_columns
 ).copy()
 
 
-# Convert target to integer
 df[target] = df[target].astype(int)
 
-
-# =========================================================
-# FEATURES AND TARGET
-# =========================================================
 
 X = df[features]
 
 y = df[target]
-
-
-# =========================================================
-# TRAIN TEST SPLIT
-# =========================================================
 
 X_train, X_test, y_train, y_test = train_test_split(
 
@@ -148,10 +107,6 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y
 )
 
-
-# =========================================================
-# MACHINE LEARNING MODEL
-# =========================================================
 
 model = Pipeline([
 
@@ -171,19 +126,10 @@ model = Pipeline([
 ])
 
 
-# =========================================================
-# TRAIN MODEL
-# =========================================================
-
 model.fit(
     X_train,
     y_train
 )
-
-
-# =========================================================
-# MODEL PREDICTION
-# =========================================================
 
 y_pred = model.predict(
     X_test
@@ -192,11 +138,6 @@ y_pred = model.predict(
 y_probability = model.predict_proba(
     X_test
 )[:, 1]
-
-
-# =========================================================
-# MODEL METRICS
-# =========================================================
 
 accuracy = accuracy_score(
     y_test,
@@ -226,11 +167,6 @@ roc_auc = roc_auc_score(
     y_probability
 )
 
-
-# =========================================================
-# CONFUSION MATRIX
-# =========================================================
-
 cm = confusion_matrix(
     y_test,
     y_pred,
@@ -238,12 +174,6 @@ cm = confusion_matrix(
 )
 
 tn, fp, fn, tp = cm.ravel()
-
-
-# =========================================================
-# FEATURE IMPORTANCE
-# =========================================================
-
 classifier = model.named_steps[
     "classifier"
 ]
@@ -273,19 +203,12 @@ for feature, coefficient in zip(
         )
     })
 
-
-# Sort by importance
 feature_importance.sort(
     key=lambda x: abs(
         x["coefficient"]
     ),
     reverse=True
 )
-
-
-# =========================================================
-# DATASET INFORMATION
-# =========================================================
 
 total_patients = len(df)
 
@@ -305,11 +228,6 @@ training_records = len(
 testing_records = len(
     X_test
 )
-
-
-# =========================================================
-# FORMATTED METRICS
-# =========================================================
 
 metrics_data = {
 
@@ -338,12 +256,6 @@ metrics_data = {
         2
     )
 }
-
-
-# =========================================================
-# COMMON TEMPLATE DATA
-# =========================================================
-
 def dashboard_data():
 
     return {
@@ -387,11 +299,6 @@ def dashboard_data():
             feature_importance
     }
 
-
-# =========================================================
-# HOME PAGE
-# =========================================================
-
 @app.route("/")
 def home():
 
@@ -400,11 +307,6 @@ def home():
         **dashboard_data()
     )
 
-
-# =========================================================
-# PREDICTION
-# =========================================================
-
 @app.route(
     "/predict",
     methods=["POST"]
@@ -412,10 +314,6 @@ def home():
 def predict():
 
     try:
-
-        # -------------------------------------------------
-        # GET FORM DATA
-        # -------------------------------------------------
 
         patient_name = request.form.get(
             "patient_name",
@@ -450,11 +348,6 @@ def predict():
             )
         )
 
-
-        # -------------------------------------------------
-        # INPUT VALIDATION
-        # -------------------------------------------------
-
         if not patient_name:
 
             patient_name = "Patient"
@@ -487,11 +380,6 @@ def predict():
                 "BMI must be between 10 and 80."
             )
 
-
-        # -------------------------------------------------
-        # CREATE PATIENT DATA
-        # -------------------------------------------------
-
         new_patient = pd.DataFrame(
 
             [[
@@ -503,12 +391,6 @@ def predict():
 
             columns=features
         )
-
-
-        # -------------------------------------------------
-        # PREDICT
-        # -------------------------------------------------
-
         prediction = model.predict(
             new_patient
         )[0]
@@ -522,11 +404,6 @@ def predict():
         probability_percentage = (
             probability * 100
         )
-
-
-        # -------------------------------------------------
-        # RESULT
-        # -------------------------------------------------
 
         if prediction == 1:
 
@@ -543,11 +420,6 @@ def predict():
             )
 
             result_class = "negative"
-
-
-        # -------------------------------------------------
-        # RISK LEVEL
-        # -------------------------------------------------
 
         if probability < 0.30:
 
@@ -567,19 +439,9 @@ def predict():
 
             risk_class = "high"
 
-
-        # -------------------------------------------------
-        # TIME
-        # -------------------------------------------------
-
         prediction_time = datetime.now().strftime(
             "%d %B %Y, %I:%M %p"
         )
-
-
-        # -------------------------------------------------
-        # SEND RESULT TO HTML
-        # -------------------------------------------------
 
         return render_template(
 
@@ -616,11 +478,6 @@ def predict():
                 prediction_time
         )
 
-
-    # =====================================================
-    # INPUT ERROR
-    # =====================================================
-
     except ValueError as error:
 
         return render_template(
@@ -631,12 +488,6 @@ def predict():
 
             error=str(error)
         )
-
-
-    # =====================================================
-    # OTHER ERROR
-    # =====================================================
-
     except Exception as error:
 
         return render_template(
@@ -649,11 +500,6 @@ def predict():
                 f"Unexpected error: {error}"
             )
         )
-
-
-# =========================================================
-# START APPLICATION
-# =========================================================
 
 if __name__ == "__main__":
 
